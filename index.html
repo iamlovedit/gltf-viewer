@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLTF 模型浏览器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        #controls h2 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        #loadingIndicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            display: none;
+        }
+
+        #modelInfo {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #modelInfo p {
+            margin-bottom: 5px;
+        }
+
+        .control-group {
+            margin-top: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        #dropZone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(52, 152, 219, 0.8);
+            font-size: 36px;
+            pointer-events: none;
+        }
+
+        #dropZone.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        
+        <div id="controls">
+            <h2>GLTF 模型浏览器</h2>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <a href="optimization-guide.html" target="_blank" style="color: #3498db; text-decoration: none; font-size: 14px;">📚 查看优化指南</a>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 15px; line-height: 1.5;">
+                <strong>鼠标控制：</strong><br>
+                左键拖动 - 平移 | 中键按住 - 旋转 | 右键拖动/滚轮 - 缩放
+            </div>
+            <input type="file" id="fileInput" accept=".gltf,.glb">
+            <button class="btn" onclick="document.getElementById('fileInput').click()">选择 GLTF/GLB 文件</button>
+            <button class="btn" onclick="resetCamera()">重置视角</button>
+            <button class="btn" onclick="toggleWireframe()">切换线框模式</button>
+            
+            <div class="control-group">
+                <label for="lightIntensity">灯光强度</label>
+                <input type="range" id="lightIntensity" min="0" max="2" step="0.1" value="1">
+            </div>
+            
+            <div class="control-group">
+                <label for="rotationSpeed">自动旋转速度</label>
+                <input type="range" id="rotationSpeed" min="0" max="0.05" step="0.005" value="0">
+            </div>
+            
+            <div id="modelInfo" style="display: none;">
+                <h3>模型信息</h3>
+                <p id="modelStats"></p>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="autoRotate" checked>
+                    自动旋转
+                </label>
+            </div>
+            
+            <h3>渲染优化</h3>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="enableLOD" checked>
+                    启用LOD（细节层次）
+                </label>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="enableFrustumCulling" checked>
+                    启用视锥体剔除
+                </label>
+            </div>
+            <div class="control-group">
+                <label>像素比率：<span id="pixelRatioValue">2</span></label>
+                <input type="range" id="pixelRatio" min="0.5" max="2" step="0.1" value="2">
+            </div>
+            <div class="control-group">
+                <label>阴影质量：</label>
+                <select id="shadowQuality">
+                    <option value="512">低 (512)</option>
+                    <option value="1024">中 (1024)</option>
+                    <option value="2048" selected>高 (2048)</option>
+                    <option value="4096">超高 (4096)</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="loadingIndicator">加载中...</div>
+        <div id="dropZone">拖放 GLTF/GLB 文件到此处</div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

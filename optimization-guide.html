@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLTF模型优化指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .optimization-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .tip {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #fef5e7;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>GLTF模型优化指南</h1>
+    
+    <div class="optimization-card">
+        <h2>🚀 已实现的优化功能</h2>
+        <ul class="feature-list">
+            <li><strong>LOD（细节层次）系统</strong> - 根据相机距离自动切换不同精度的模型</li>
+            <li><strong>视锥体剔除</strong> - 只渲染相机视野内的物体</li>
+            <li><strong>材质优化</strong> - 自动优化贴图大小和材质属性</li>
+            <li><strong>几何体优化</strong> - 优化顶点数据和索引</li>
+            <li><strong>性能监控</strong> - 实时显示FPS、三角形数量等信息</li>
+            <li><strong>动态像素比</strong> - 可调整渲染分辨率以平衡性能和质量</li>
+            <li><strong>阴影质量控制</strong> - 可选择不同的阴影贴图分辨率</li>
+        </ul>
+    </div>
+    
+    <div class="optimization-card">
+        <h2>📊 性能优化建议</h2>
+        
+        <h3>1. 模型准备阶段</h3>
+        <div class="tip">
+            <p><strong>建模软件优化：</strong></p>
+            <ul>
+                <li>使用 Blender、Maya 等软件的 <code>Decimate</code> 修改器减少面片数</li>
+                <li>合并相同材质的网格</li>
+                <li>移除看不见的面片</li>
+                <li>使用 <code>Draco</code> 压缩导出 GLTF</li>
+            </ul>
+        </div>
+        
+        <h3>2. 纹理优化</h3>
+        <ul>
+            <li>将纹理大小限制在 2048x2048 或更小</li>
+            <li>使用 WebP 或 JPEG 格式代替 PNG（如果不需要透明度）</li>
+            <li>使用纹理图集（Texture Atlas）减少 Draw Calls</li>
+            <li>启用 Mipmap 以提高远距离渲染性能</li>
+        </ul>
+        
+        <h3>3. 实时渲染优化</h3>
+        <ul>
+            <li><strong>三角形数量建议：</strong></li>
+            <ul>
+                <li>移动设备：< 50,000 三角形</li>
+                <li>中端PC：< 500,000 三角形</li>
+                <li>高端PC：< 1,000,000 三角形</li>
+            </ul>
+            <li><strong>Draw Calls 优化：</strong>保持在 100-300 以内</li>
+        </ul>
+    </div>
+    
+    <div class="optimization-card">
+        <h2>⚡ 高级优化技术</h2>
+        
+        <h3>1. 实例化渲染（Instancing）</h3>
+        <p>对于重复的物体（如树木、建筑），使用实例化渲染：</p>
+        <code>THREE.InstancedMesh</code>
+        
+        <h3>2. 遮挡剔除（Occlusion Culling）</h3>
+        <p>隐藏被其他物体遮挡的对象，减少渲染负担</p>
+        
+        <h3>3. 批处理（Batching）</h3>
+        <p>将多个小网格合并为一个大网格，减少 Draw Calls</p>
+        
+        <h3>4. 骨骼动画优化</h3>
+        <ul>
+            <li>限制骨骼数量（每个网格 < 60 个骨骼）</li>
+            <li>使用 GPU 蒙皮</li>
+            <li>降低动画更新频率</li>
+        </ul>
+    </div>
+    
+    <div class="optimization-card">
+        <h2>🛠️ 故障排除</h2>
+        
+        <div class="warning">
+            <p><strong>常见性能问题：</strong></p>
+            <ul>
+                <li><strong>卡顿：</strong>检查三角形数量和 Draw Calls</li>
+                <li><strong>内存溢出：</strong>优化纹理大小，及时释放不用的资源</li>
+                <li><strong>加载缓慢：</strong>使用 Draco 压缩，实现渐进式加载</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="optimization-card">
+        <h2>📱 平台特定优化</h2>
+        
+        <h3>移动设备</h3>
+        <ul>
+            <li>降低像素比至 1.0</li>
+            <li>禁用或降低阴影质量</li>
+            <li>使用简化的着色器</li>
+            <li>限制后处理效果</li>
+        </ul>
+        
+        <h3>VR/AR</h3>
+        <ul>
+            <li>保持稳定的 90+ FPS</li>
+            <li>使用单通道立体渲染</li>
+            <li>优化视锥体设置</li>
+        </ul>
+    </div>
+    
+    <script>
+        // 添加平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
