@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // 全局变量
 let scene, camera, renderer, controls;
@@ -11,6 +12,7 @@ let clock = new THREE.Clock();
 let ambientLight, directionalLight;
 let rotationSpeed = 0;
 let animations = [];
+let sectionPlaneX = null, sectionPlaneY = null, sectionPlaneZ = null;
 
 // 优化相关变量
 let lodGroup = null;
@@ -41,7 +43,7 @@ function init() {
         0.1,
         1000
     );
-    camera.position.set(0, 10, 10);
+    camera.position.set(0, 100, 100);
 
 
     // 创建渲染器
@@ -117,12 +119,12 @@ function init() {
     // scene.add(ground);
 
     // // 添加网格辅助线
-    // const gridHelper = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
-    // scene.add(gridHelper);
+    const gridHelper = new THREE.GridHelper(100, 100, 0x444444, 0x222222);
+    scene.add(gridHelper);
 
     // 添加坐标轴辅助线
-    // const axesHelper = new THREE.AxesHelper(5);
-    // scene.add(axesHelper);
+    const axesHelper = new THREE.AxesHelper(5);
+    scene.add(axesHelper);
 
     // 设置事件监听器
     setupEventListeners();
@@ -414,7 +416,7 @@ window.resetCamera = function () {
     if (currentModel) {
         fitCameraToObject(currentModel);
     } else {
-        camera.position.set(0, 10, 10);
+        camera.position.set(0, 100, 100);
         camera.lookAt(0, 0, 0);
         controls.target.set(0, 0, 0);
         controls.update();
@@ -639,6 +641,8 @@ function addPerformanceMonitor() {
     const statsContainer = document.createElement('div');
     statsContainer.style.position = 'absolute';
     statsContainer.style.top = '10px';
+    statsContainer.style.width = '100px'
+    statsContainer.style.height = '100px'
     statsContainer.style.right = '10px';
     statsContainer.style.color = 'white';
     statsContainer.style.fontFamily = 'monospace';
@@ -681,3 +685,248 @@ function updatePerformanceStats() {
         `;
     }
 }
+
+// 剖切工具栏按钮事件
+document.getElementById('sectionX').addEventListener('click', () => {
+    enableSectionPlane('x');
+    showSectionBox('x');
+});
+document.getElementById('sectionY').addEventListener('click', () => {
+    enableSectionPlane('y');
+    showSectionBox('y');
+});
+document.getElementById('sectionZ').addEventListener('click', () => {
+    enableSectionPlane('z');
+    showSectionBox('z');
+});
+document.getElementById('resetSection').addEventListener('click', () => {
+    resetSectionPlanes();
+    hideSectionBox();
+});
+
+// 剖切框拖动与同步剖切平面
+const sectionBox = document.getElementById('sectionBox');
+let isDraggingSection = false;
+let dragOffset = { x: 0, y: 0 };
+let currentSectionAxis = null;
+
+function showSectionBox(axis) {
+    sectionBox.style.display = 'block';
+    currentSectionAxis = axis;
+    // 可根据需要调整初始位置和大小
+}
+function hideSectionBox() {
+    sectionBox.style.display = 'none';
+    currentSectionAxis = null;
+}
+
+sectionBox.addEventListener('mousedown', function (e) {
+    isDraggingSection = true;
+    dragOffset.x = e.clientX - sectionBox.offsetLeft;
+    dragOffset.y = e.clientY - sectionBox.offsetTop;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', function (e) {
+    if (!isDraggingSection) return;
+    let x = e.clientX - dragOffset.x;
+    let y = e.clientY - dragOffset.y;
+    // 限制拖动范围在container内
+    const container = document.getElementById('container');
+    x = Math.max(0, Math.min(container.clientWidth - sectionBox.offsetWidth, x));
+    y = Math.max(0, Math.min(container.clientHeight - sectionBox.offsetHeight, y));
+    sectionBox.style.left = x + 'px';
+    sectionBox.style.top = y + 'px';
+    updateSectionPlaneByBox();
+});
+document.addEventListener('mouseup', function () {
+    isDraggingSection = false;
+    document.body.style.userSelect = '';
+});
+
+function updateSectionPlaneByBox() {
+    if (!currentSectionAxis) return;
+    // 计算剖切平面的位置
+    const container = document.getElementById('container');
+    const boxRect = sectionBox.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    // 归一化到[-1,1]范围
+    const relX = (boxRect.left + boxRect.width / 2 - containerRect.left) / containerRect.width;
+    const relY = (boxRect.top + boxRect.height / 2 - containerRect.top) / containerRect.height;
+    // 通过相机反投影到世界坐标
+    let plane;
+    switch (currentSectionAxis) {
+        case 'x':
+            // relX=0为最左，1为最右
+            // 这里假设模型居中，剖切平面d取值范围[-maxX,maxX]
+            if (currentModel) {
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const maxX = Math.max(Math.abs(box.min.x), Math.abs(box.max.x));
+                const d = -(relX * 2 - 1) * maxX;
+                sectionPlaneX.constant = d;
+                renderer.clippingPlanes = [sectionPlaneX];
+            }
+            break;
+        case 'y':
+            if (currentModel) {
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const maxY = Math.max(Math.abs(box.min.y), Math.abs(box.max.y));
+                const d = -(1 - relY * 2) * maxY;
+                sectionPlaneY.constant = d;
+                renderer.clippingPlanes = [sectionPlaneY];
+            }
+            break;
+        case 'z':
+            if (currentModel) {
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const maxZ = Math.max(Math.abs(box.min.z), Math.abs(box.max.z));
+                const d = -(relX * 2 - 1) * maxZ; // 用relX控制z轴剖切
+                sectionPlaneZ.constant = d;
+                renderer.clippingPlanes = [sectionPlaneZ];
+            }
+            break;
+    }
+}
+function enableSectionPlane(axis) {
+    resetSectionPlanes();
+    let plane;
+    switch (axis) {
+        case 'x':
+            sectionPlaneX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+            plane = sectionPlaneX;
+            break;
+        case 'y':
+            sectionPlaneY = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+            plane = sectionPlaneY;
+            break;
+        case 'z':
+            sectionPlaneZ = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+            plane = sectionPlaneZ;
+            break;
+    }
+    renderer.clippingPlanes = [plane];
+}
+function resetSectionPlanes() {
+    sectionPlaneX = sectionPlaneY = sectionPlaneZ = null;
+    renderer.clippingPlanes = [];
+}
+
+// 三维剖切盒相关变量
+let sectionBoxHelper = null;
+let sectionBoxPlanes = [];
+let sectionBoxControls = [];
+let sectionBoxMeshes = [];
+
+function enableSectionBox() {
+    if (!currentModel) return;
+    // 移除旧的剖切盒和控件
+    if (sectionBoxHelper) {
+        scene.remove(sectionBoxHelper);
+        sectionBoxPlanes = [];
+        sectionBoxControls.forEach(ctrl => ctrl.dispose && ctrl.dispose());
+        sectionBoxControls = [];
+        sectionBoxMeshes.forEach(mesh => scene.remove(mesh));
+        sectionBoxMeshes = [];
+    }
+    // 获取模型包围盒
+    const box = new THREE.Box3().setFromObject(currentModel);
+    // 创建BoxHelper
+    sectionBoxHelper = new THREE.Box3Helper(box, 0xff9800);
+    scene.add(sectionBoxHelper);
+    // 创建六个clipping plane
+    sectionBoxPlanes = [
+        new THREE.Plane(new THREE.Vector3(-1, 0, 0), -box.min.x), // left
+        new THREE.Plane(new THREE.Vector3(1, 0, 0), box.max.x),   // right
+        new THREE.Plane(new THREE.Vector3(0, -1, 0), -box.min.y), // bottom
+        new THREE.Plane(new THREE.Vector3(0, 1, 0), box.max.y),   // top
+        new THREE.Plane(new THREE.Vector3(0, 0, -1), -box.min.z), // back
+        new THREE.Plane(new THREE.Vector3(0, 0, 1), box.max.z)    // front
+    ];
+    renderer.clippingPlanes = sectionBoxPlanes;
+    renderer.localClippingEnabled = true;
+    // 创建六个可拖动的透明面
+    const faceConfigs = [
+        { // left
+            pos: [box.min.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2],
+            size: [0.01, box.max.y - box.min.y, box.max.z - box.min.z],
+            planeIdx: 0,
+            normal: new THREE.Vector3(-1, 0, 0)
+        },
+        { // right
+            pos: [box.max.x, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2],
+            size: [0.01, box.max.y - box.min.y, box.max.z - box.min.z],
+            planeIdx: 1,
+            normal: new THREE.Vector3(1, 0, 0)
+        },
+        { // bottom
+            pos: [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2],
+            size: [box.max.x - box.min.x, 0.01, box.max.z - box.min.z],
+            planeIdx: 2,
+            normal: new THREE.Vector3(0, -1, 0)
+        },
+        { // top
+            pos: [(box.min.x + box.max.x) / 2, box.max.y, (box.min.z + box.max.z) / 2],
+            size: [box.max.x - box.min.x, 0.01, box.max.z - box.min.z],
+            planeIdx: 3,
+            normal: new THREE.Vector3(0, 1, 0)
+        },
+        { // back
+            pos: [(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z],
+            size: [box.max.x - box.min.x, box.max.y - box.min.y, 0.01],
+            planeIdx: 4,
+            normal: new THREE.Vector3(0, 0, -1)
+        },
+        { // front
+            pos: [(box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.max.z],
+            size: [box.max.x - box.min.x, box.max.y - box.min.y, 0.01],
+            planeIdx: 5,
+            normal: new THREE.Vector3(0, 0, 1)
+        }
+    ];
+    faceConfigs.forEach(cfg => {
+        const geo = new THREE.BoxGeometry(cfg.size[0], cfg.size[1], cfg.size[2]);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00bfff, opacity: 0.2, transparent: true, depthWrite: false });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(cfg.pos[0], cfg.pos[1], cfg.pos[2]);
+        mesh.userData.planeIdx = cfg.planeIdx;
+        scene.add(mesh);
+        sectionBoxMeshes.push(mesh);
+        // 拖动控件
+        const ctrl = new TransformControls(camera, renderer.domElement);
+        ctrl.attach(mesh);
+        ctrl.setMode('translate');
+        ctrl.showX = Math.abs(cfg.normal.x) === 1;
+        ctrl.showY = Math.abs(cfg.normal.y) === 1;
+        ctrl.showZ = Math.abs(cfg.normal.z) === 1;
+        ctrl.addEventListener('objectChange', () => {
+            // 拖动时同步更新clipping plane
+            const idx = mesh.userData.planeIdx;
+            // 计算新constant
+            const worldPos = mesh.position.clone();
+            sectionBoxPlanes[idx].constant = -cfg.normal.dot(worldPos);
+        });
+        scene.add(ctrl);
+        sectionBoxControls.push(ctrl);
+    });
+}
+function disableSectionBox() {
+    if (sectionBoxHelper) {
+        scene.remove(sectionBoxHelper);
+        sectionBoxHelper = null;
+    }
+    sectionBoxPlanes = [];
+    renderer.clippingPlanes = [];
+    renderer.localClippingEnabled = false;
+    sectionBoxControls.forEach(ctrl => ctrl.dispose && ctrl.dispose());
+    sectionBoxControls = [];
+    sectionBoxMeshes.forEach(mesh => scene.remove(mesh));
+    sectionBoxMeshes = [];
+}
+// 剖切工具栏按钮事件重构
+const sectionXBtn = document.getElementById('sectionX');
+const sectionYBtn = document.getElementById('sectionY');
+const sectionZBtn = document.getElementById('sectionZ');
+const resetSectionBtn = document.getElementById('resetSection');
+sectionXBtn.addEventListener('click', enableSectionBox);
+sectionYBtn.addEventListener('click', enableSectionBox);
+sectionZBtn.addEventListener('click', enableSectionBox);
+resetSectionBtn.addEventListener('click', disableSectionBox);

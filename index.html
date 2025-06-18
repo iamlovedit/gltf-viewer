@@ -230,6 +230,48 @@
 
       <div id="loadingIndicator">加载中...</div>
       <div id="dropZone">拖放 GLTF/GLB 文件到此处</div>
+
+      <!-- 剖切工具栏 -->
+      <div
+        id="sectionToolbar"
+        style="
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 60px;
+          background: rgba(34, 34, 34, 0.95);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 20;
+        "
+      >
+        <span style="color: #fff; font-size: 15px; margin-right: 20px"
+          >剖切视图：</span
+        >
+        <button class="btn" id="sectionX">X轴剖切</button>
+        <button class="btn" id="sectionY">Y轴剖切</button>
+        <button class="btn" id="sectionZ">Z轴剖切</button>
+        <button class="btn" id="resetSection">重置剖切</button>
+      </div>
+
+      <!-- 剖切框控件 -->
+      <div
+        id="sectionBox"
+        style="
+          position: absolute;
+          top: 30%;
+          left: 30%;
+          width: 200px;
+          height: 200px;
+          border: 2px dashed #ff9800;
+          z-index: 30;
+          cursor: move;
+          display: none;
+          background: rgba(255, 152, 0, 0.05);
+        "
+      ></div>
     </div>
 
     <script type="importmap">
