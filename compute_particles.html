@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link type="text/css" rel="stylesheet" href="main.css" />
+    <title>Photo Maker</title>
+  </head>
+  <body>
+    <div id="info">
+      <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>
+      WebGPU - Compute - 500k Particles
+      <div
+        id="timestamps"
+        style="
+          position: absolute;
+          top: 60px;
+          left: 0;
+          padding: 10px;
+          background: rgba(0, 0, 0, 0.5);
+          color: #fff;
+          font-family: monospace;
+          font-size: 12px;
+          line-height: 1.5;
+          pointer-events: none;
+          text-align: left;
+        "
+      ></div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./build/three.webgpu.js",
+          "three/webgpu": "./build/three.webgpu.js",
+          "three/tsl": "./build/three.tsl.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+      import {
+        Fn,
+        If,
+        uniform,
+        float,
+        uv,
+        vec2,
+        vec3,
+        hash,
+        shapeCircle,
+        instancedArray,
+        instanceIndex,
+      } from "three/tsl";
+      let camera, scene, renderer;
+
+      init();
+      function init() {
+        const { innerWidth, innerHeight } = window;
+        camera = new THREE.PerspectiveCamera();
+      }
+    </script>
+  </body>
+</html>
